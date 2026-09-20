@@ -1,0 +1,14 @@
+# Local build and test outputs
+/nearbyscout
+/nearbyscout.exe
+*.test
+/coverage.out
+/coverage.html
+*.prof
+
+# Local configuration and secrets; keep config.example.toml tracked
+/config.toml
+/config.local.toml
+/.env
+/.env.*
+!/.env.example
