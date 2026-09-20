@@ -40,6 +40,8 @@ Responses: 202 means parsing and queue admission succeeded, including batches wi
 
 ## Filter Environment
 
+While serving, log `webhook activity` every 10 seconds with interval counts `received` and `matched`, including zero-traffic intervals. `received` counts decoded event objects (not HTTP batches), including ignored event types. `matched` counts eligible Pokemon passing the expression before deduplication and queue admission. Neither is a delivery count; both can include a parsed prefix of a subsequently rejected batch. Unauthorized or request-slot-rejected requests are not decoded and contribute no events. These two atomic counters reset on logging and are separate from cumulative `/stats` counters. Reads/resets are individually atomic, not a joint snapshot; an event crossing a tick can contribute to received and matched in different intervals. The ticker runs in the main serve loop and stops logging when shutdown begins.
+
 Compile `filter.expression` once at startup with the typed environment and a required Boolean result. Use Expr operators (`==`, `&&`, `||`, parentheses, `in`), not JavaScript's `===`. Evaluate the shared compiled program per eligible event without compiling per event.
 
 All exposed fields:

@@ -74,6 +74,9 @@ func TestConcurrentAdmissionAndWorkers(t *testing.T) {
 		})
 	}
 	requests.Wait()
+	if s.received.Load() != 64 || s.matched.Load() != 64 {
+		t.Fatalf("activity counters lost events: received=%d matched=%d", s.received.Load(), s.matched.Load())
+	}
 	close(s.queue)
 	workers.Wait()
 	if received.Load() != 1 || s.accepted.Load() != 1 || s.sent.Load() != 1 || s.duplicates.Load() != 63 {

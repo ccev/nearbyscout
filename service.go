@@ -48,6 +48,12 @@ type Service struct {
 	failed      atomic.Uint64
 	expired     atomic.Uint64
 	rejected    atomic.Uint64
+	received    atomic.Uint64
+	matched     atomic.Uint64
+}
+
+func (s *Service) logActivity() {
+	slog.Info("webhook activity", "interval", "10s", "received", s.received.Swap(0), "matched", s.matched.Swap(0))
 }
 
 func newService(c Config) (*Service, error) {
@@ -139,6 +145,7 @@ func (s *Service) webhook(w http.ResponseWriter, r *http.Request) {
 			badJSON(nil)
 			return
 		}
+		s.received.Add(1)
 		if event.Type != "pokemon" {
 			continue
 		}
@@ -172,6 +179,7 @@ func (s *Service) webhook(w http.ResponseWriter, r *http.Request) {
 		if !match.(bool) {
 			continue
 		}
+		s.matched.Add(1)
 		if _, exists := batchIDs[p.EncounterID]; exists {
 			s.duplicates.Add(1)
 			continue

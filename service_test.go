@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -56,6 +57,80 @@ func testWebhook(t testing.TB, s *Service, body string, status int) {
 	s.handler().ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/webhook", strings.NewReader(body)))
 	if w.Code != status {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, status, w.Body.String())
+	}
+}
+
+func TestWebhookActivity(t *testing.T) {
+	s := testService(t, testConfig(t))
+	match := testEvent("match", nil)
+	events := []string{
+		match, match,
+		testEvent("nonmatch", map[string]any{"individual_attack": 10}),
+		testEvent("cell", map[string]any{"seen_type": "nearby_cell"}),
+		testEvent("encounter", map[string]any{"seen_type": "encounter"}),
+		`{"type":"raid","message":{}}`,
+	}
+	testWebhook(t, s, "["+strings.Join(events, ",")+"]", http.StatusAccepted)
+	// Cross-request duplicates and rejected batch prefixes still represent activity.
+	testWebhook(t, s, "["+match+"]", http.StatusAccepted)
+	testWebhook(t, s, "["+match+",false]", http.StatusBadRequest)
+	if s.received.Load() != 8 || s.matched.Load() != 4 {
+		t.Fatalf("received=%d matched=%d, want 8/4", s.received.Load(), s.matched.Load())
+	}
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	defer slog.SetDefault(previous)
+	for _, counts := range [][2]uint64{{8, 4}, {0, 0}} {
+		output.Reset()
+		s.logActivity()
+		var entry struct {
+			Message  string `json:"msg"`
+			Interval string `json:"interval"`
+			Received uint64 `json:"received"`
+			Matched  uint64 `json:"matched"`
+		}
+		if err := json.Unmarshal(output.Bytes(), &entry); err != nil {
+			t.Fatal(err)
+		}
+		if entry.Message != "webhook activity" || entry.Interval != "10s" || entry.Received != counts[0] || entry.Matched != counts[1] {
+			t.Fatalf("unexpected activity log: %s", output.String())
+		}
+	}
+	if s.accepted.Load() != 1 || s.duplicates.Load() != 2 || s.skippedCell.Load() != 1 || s.rejected.Load() != 1 {
+		t.Fatal("activity logging changed cumulative counters")
+	}
+	testWebhook(t, s, "["+match+"]", http.StatusAccepted)
+	if s.received.Load() != 1 || s.matched.Load() != 1 {
+		t.Fatal("new interval did not start at zero")
+	}
+}
+
+func TestWebhookActivityRejectedRequests(t *testing.T) {
+	for _, reason := range []string{"auth", "slots", "queue"} {
+		t.Run(reason, func(t *testing.T) {
+			c := testConfig(t)
+			c.Queue.Capacity = 1
+			s := testService(t, c)
+			status := http.StatusServiceUnavailable
+			want := uint64(0)
+			switch reason {
+			case "auth":
+				s.cfg.Server.Token = "secret"
+				status = http.StatusUnauthorized
+			case "slots":
+				for range cap(s.slots) {
+					s.slots <- struct{}{}
+				}
+			case "queue":
+				s.queue <- scout{}
+				want = 1
+			}
+			testWebhook(t, s, "["+testEvent("match", nil)+"]", status)
+			if s.received.Load() != want || s.matched.Load() != want {
+				t.Fatalf("received=%d matched=%d, want %d/%d", s.received.Load(), s.matched.Load(), want, want)
+			}
+		})
 	}
 }
 

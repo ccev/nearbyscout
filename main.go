@@ -50,9 +50,18 @@ func run(path string) error {
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- srv.Serve(listener) }()
 	slog.Info("nearbyscout listening", "address", listener.Addr().String())
-	select {
-	case <-ctx.Done():
-	case err = <-serveErr:
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+running:
+	for {
+		select {
+		case <-ctx.Done():
+			break running
+		case err = <-serveErr:
+			break running
+		case <-ticker.C:
+			s.logActivity()
+		}
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
