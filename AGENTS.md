@@ -16,10 +16,10 @@ Reference sources inspected for this contract:
 ## Architecture
 
 - `main.go`: `-config` flag (default `config.toml`), startup, listener, fixed worker pool, signal handling and shutdown.
-- `config.go`: TOML structures and strict loading with unknown fields rejected; validates endpoint, positive limits and durations.
+- `config.go`: TOML structures and strict loading with unknown fields rejected; applies built-in tuning defaults before decoding, then validates endpoint, positive limits and durations. Explicit invalid values must not fall back to defaults.
 - `filter.go`: webhook Pokemon model, nullable numeric values, typed Expr environment and startup compilation to a Boolean program.
 - `service.go`: routes, optional incoming auth, streaming batch validation, filtering, bounded queue, encounter deduplication, batching, HTTP delivery and atomic counters.
-- `config.example.toml`: tracked example settings, not implicit defaults. Copy to the Git-ignored `config.toml` for local use. With no arguments, the executable reads `config.toml` from its working directory; `-config PATH` overrides this. Configuration is read once at startup; there is no environment-variable override or live reload. Tests load the tracked example rather than local configuration.
+- `config.example.toml`: minimal tracked example with listener, optional incoming token, Dragonite endpoint and filter. Advanced tuning keys are intentionally omitted from the example and human README but remain optional TOML overrides. Copy to the Git-ignored `config.toml` for local use. With no arguments, the executable reads `config.toml` from its working directory; `-config PATH` overrides this. Configuration is read once at startup; there is no environment-variable override or live reload. Tests load the tracked example rather than local configuration.
 
 ## Inbound Contract
 
@@ -70,10 +70,12 @@ The shipped expression is `iv == 100 || great_rank <= 5 || ultra_rank <= 5 || iv
 
 ## Configuration
 
-| Key | Shipped value | Purpose |
+The table below is internal agent reference. Host, port, endpoint and filter are example values, not built-in defaults. The other settings default as listed when omitted from TOML; do not expose these advanced tuning keys in the example or human README. These are TOML overrides, not CLI flags. An omitted token defaults to empty (authentication disabled).
+
+| Key | Example / default value | Purpose |
 | --- | --- | --- |
 | `server.host` | `127.0.0.1` | Listener host |
-| `server.port` | `8080` | TCP port, 1..65535 |
+| `server.port` | `7733` | TCP port, 1..65535 |
 | `server.token` | empty | Optional incoming Bearer token |
 | `server.max_body_bytes` | `16777216` | Maximum webhook body bytes |
 | `server.max_concurrent_requests` | `8` | Concurrent webhook processing slots |

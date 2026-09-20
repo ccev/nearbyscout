@@ -36,6 +36,16 @@ type Config struct {
 
 func loadConfig(path string) (Config, error) {
 	var c Config
+	// Decode over defaults so omitted settings differ from explicit invalid values.
+	c.Server.MaxBodyBytes = 16777216
+	c.Server.MaxConcurrentRequests = 8
+	c.Dragonite.Username = "nearbyscout"
+	c.Dragonite.Workers = 2
+	c.Dragonite.BatchSize = 100
+	c.Dragonite.Timeout = "5s"
+	c.Queue.Capacity = 10000
+	c.Queue.DedupCapacity = 100000
+	c.Queue.DedupTTL = "10m"
 	f, err := os.Open(path)
 	if err != nil {
 		return c, err

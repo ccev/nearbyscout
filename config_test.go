@@ -22,6 +22,55 @@ func writeTestConfig(t testing.TB, c Config) string {
 	return path
 }
 
+func TestLoadConfigDefaults(t *testing.T) {
+	c := testConfig(t)
+	for _, tc := range []struct {
+		name string
+		got  any
+		want any
+	}{
+		{"token", c.Server.Token, ""},
+		{"max_body_bytes", c.Server.MaxBodyBytes, int64(16777216)},
+		{"max_concurrent_requests", c.Server.MaxConcurrentRequests, 8},
+		{"username", c.Dragonite.Username, "nearbyscout"},
+		{"workers", c.Dragonite.Workers, 2},
+		{"batch_size", c.Dragonite.BatchSize, 100},
+		{"timeout", c.Dragonite.Timeout, "5s"},
+		{"capacity", c.Queue.Capacity, 10000},
+		{"dedup_capacity", c.Queue.DedupCapacity, 100000},
+		{"dedup_ttl", c.Queue.DedupTTL, "10m"},
+	} {
+		if tc.got != tc.want {
+			t.Errorf("%s = %v, want %v", tc.name, tc.got, tc.want)
+		}
+	}
+}
+
+func TestLoadConfigOverrides(t *testing.T) {
+	for _, username := range []string{"custom-requester", ""} {
+		t.Run("username="+username, func(t *testing.T) {
+			want := testConfig(t)
+			want.Server.Token = "test-token"
+			want.Server.MaxBodyBytes = 1024
+			want.Server.MaxConcurrentRequests = 3
+			want.Dragonite.Username = username
+			want.Dragonite.Workers = 4
+			want.Dragonite.BatchSize = 25
+			want.Dragonite.Timeout = "2s"
+			want.Queue.Capacity = 200
+			want.Queue.DedupCapacity = 500
+			want.Queue.DedupTTL = "1m"
+			got, err := loadConfig(writeTestConfig(t, want))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != want {
+				t.Fatalf("config = %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
 func TestLoadConfigUnknownKeys(t *testing.T) {
 	base, err := toml.Marshal(testConfig(t))
 	if err != nil {

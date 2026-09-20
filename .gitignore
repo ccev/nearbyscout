@@ -12,3 +12,5 @@
 /.env
 /.env.*
 !/.env.example
+
+.idea/

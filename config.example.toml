@@ -1,24 +1,12 @@
 [server]
 host = "127.0.0.1"
-port = 8080
-# Optional incoming Golbat authentication; empty disables it.
-token = ""
-max_body_bytes = 16777216
-max_concurrent_requests = 8
+port = 7733
+# Optional auth token
+# token = ""
 
 [dragonite]
 endpoint = "http://127.0.0.1:7272/scout/v2"
-# Requester name sent in Dragonite's username field.
-username = "nearbyscout"
-workers = 2
-batch_size = 100
-timeout = "5s"
-
-[queue]
-capacity = 10000
-dedup_capacity = 100000
-dedup_ttl = "10m"
 
 [filter]
-# Expr syntax: == (not ===), &&, ||, parentheses, and `in`.
+# Expr syntax (expr-lang.org)
 expression = "iv == 100 || great_rank <= 5 || ultra_rank <= 5 || iv == 0 || pokemon_id == 201"
